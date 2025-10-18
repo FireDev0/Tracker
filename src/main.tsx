@@ -1,10 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-import MangaTrackerApp from "./MangaTrackerApp";
+import TrackerApp from "./TrackerApp";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <MangaTrackerApp />
+    <TrackerApp />
   </React.StrictMode>
 );

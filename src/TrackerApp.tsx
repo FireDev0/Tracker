@@ -1,5 +1,5 @@
 // CLEANED v12.1 – automated fixes applied on 2025-10-12
-// src/MangaTrackerApp.tsx
+// src/TrackerApp.tsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { User } from "firebase/auth";
 import { signInWithPopup, signOut, onAuthStateChanged } from "firebase/auth";
@@ -66,7 +66,8 @@ const uid = () =>
   Math.random().toString(36).slice(2) + "-" + Date.now().toString(36);
 const clamp = (n: number, min: number, max: number) =>
   Math.min(max, Math.max(min, n));
-const LOCAL_KEY = "manga-store-v2";
+const LOCAL_KEY = "tracker-store-v1";
+const LEGACY_LOCAL_KEY = "manga-store-v2";
 const BACKUP_KEY = "MT_BACKUPS_V1";
 const SESSION_PIN_KEY = "MT_SESSION_GLOBAL_PIN";
 const PERSIST_PIN_KEY = "MT_PERSIST_GLOBAL_PIN";
@@ -448,23 +449,113 @@ function normalizeStore(x: any): StoreShape {
 }
 
 
+
 /* =========== Firestore doc/collection helpers =========== */
-const userDocRef = (uid: string) => doc(db, "mangaTracker", uid);
-const pagesColRef = (uid: string) => collection(db, "mangaTracker", uid, "pages");
-const pageDocRef  = (uid: string, pageId: string) => doc(db, "mangaTracker", uid, "pages", pageId);
+const COLL = "tracker";
+const LEGACY_COLL = "mangaTracker";
+
+const userDocRef = (uid: string) => doc(db, COLL, uid);
+const pagesColRef = (uid: string) => collection(db, COLL, uid, "pages");
+const pageDocRef  = (uid: string, pageId: string) => doc(db, COLL, uid, "pages", pageId);
+
+// Legacy helpers (SOLO lettura/migrazione)
+const legacyUserDocRef  = (uid: string) => doc(db, LEGACY_COLL, uid);
+const legacyPagesColRef = (uid: string) => collection(db, LEGACY_COLL, uid, "pages");
+const legacyPageDocRef  = (uid: string, pageId: string) => doc(db, LEGACY_COLL, uid, "pages", pageId);
 /* ============= CLOUD ONLY helpers ============= */
 
 async function loadCloudStore(userId: string): Promise<StoreShape> {
   try {
     const uRef = userDocRef(userId);
-    const uSnap = await getDoc(uRef);
+let uSnap = await getDoc(uRef);
 
-    // Se non esiste ancora nulla, torna lo store di default
-    if (!uSnap.exists()) {
-      return defaultStore();
-    }
+// Se nella NUOVA coll non c'è nulla, prova la legacy e copia nella nuova
+if (!uSnap.exists()) {
+// Fallback legacy: prova a leggere dalla vecchia collezione "mangaTracker"
+const oldRef = legacyUserDocRef(userId);
+const oldSnap = await getDoc(oldRef);
+if (!oldSnap.exists()) {
+  return defaultStore();
+}
 
-    const meta: any = uSnap.data() || {};
+const meta: any = oldSnap.data() || {};
+let pSnap = await getDocs(legacyPagesColRef(userId));
+
+// MIGRAZIONE AUTOMATICA (legacy): se la subcollection legacy è vuota ma il vecchio doc ha "pages" array
+if (pSnap.empty && Array.isArray(meta.pages)) {
+  const batch = writeBatch(db);
+  const pagesOrder: string[] = [];
+
+  for (const p of meta.pages as any[]) {
+    const pid = String(p.id || Math.random().toString(36).slice(2));
+    pagesOrder.push(pid);
+    batch.set(
+      legacyPageDocRef(userId, pid),
+      {
+        id: pid,
+        name: String(p.name || "Page"),
+        requireConfirm: Boolean(p.requireConfirm),
+        requirePin: Boolean(p.requirePin),
+        pinHash: typeof p.pinHash === "string" ? p.pinHash : null,
+        isTextPage: Boolean(p.isTextPage),
+        notes: typeof p.notes === "string" ? p.notes : "",
+        notesEnc: (p as any).notesEnc ?? null,
+        updatedAt: Number(meta.updatedAt || Date.now()),
+        items: Array.isArray(p.items) ? p.items : [],
+      },
+      { merge: true }
+    );
+  }
+
+  batch.update(oldRef, {
+    pagesOrder,
+    updatedAt: Number(meta.updatedAt || Date.now()),
+    pages: deleteField(),
+  });
+
+  await batch.commit();
+  // rileggi dopo la migrazione legacy
+  pSnap = await getDocs(legacyPagesColRef(userId));
+}
+
+const pages = pSnap.docs.map((d) => {
+  const p: any = d.data() || {};
+  return {
+    id: String(p.id || d.id),
+    name: String(p.name || "Page"),
+    requireConfirm: Boolean(p.requireConfirm),
+    requirePin: Boolean(p.requirePin),
+    pinHash: typeof p.pinHash === "string" ? p.pinHash : null,
+    isTextPage: Boolean(p.isTextPage),
+    notes: typeof p.notes === "string" ? p.notes : "",
+    notesEnc: p.notesEnc ?? null,
+    items: Array.isArray(p.items) ? p.items : [],
+  };
+});
+
+const ordered = Array.isArray(meta.pagesOrder)
+  ? [...pages].sort((a, b) => meta.pagesOrder.indexOf(a.id) - meta.pagesOrder.indexOf(b.id))
+  : pages;
+
+const activePageId =
+  typeof meta.activePageId === "string" && ordered.some(p => p.id === meta.activePageId)
+    ? meta.activePageId
+    : ordered[0]?.id || defaultStore().activePageId;
+
+const store = normalizeStore({
+  pages: ordered,
+  activePageId,
+  lang: meta.lang === "en" ? "en" : "it",
+  dateLang: meta.dateLang === "en" ? "en" : meta.dateLang === "it" ? "it" : (meta.lang === "en" ? "en" : "it"),
+  updatedAt: Number(meta.updatedAt || Date.now()),
+});
+
+// Copia nella NUOVA collezione "tracker"
+await saveStore(userId, store);
+return store;
+
+}
+const meta: any = uSnap.data() || {};
     // Leggi le pagine dalla sottocollezione
     let pSnap = await getDocs(pagesColRef(userId));
 
@@ -665,7 +756,7 @@ const Counter: React.FC<CounterProps> = ({
 };
 
 /* ==================== Component ==================== */
-export default function MangaTrackerApp() {
+export default function TrackerApp() {
   const [user, setUser] = useState<User | null>(null);
   const [store, setStore] = useState<StoreShape>(defaultStore());
   const [hydrated, setHydrated] = useState(false);
@@ -771,8 +862,6 @@ async function decryptAllGlobals() {
   
 
 // Keep device persistence in sync with the checkbox, but don't clear on the first mount
-
-// Keep device persistence in sync with the checkbox, but don't clear on the first mount
 const rememberPersistPrev = useRef<boolean | null>(null);
 useEffect(() => {
   if (rememberPersistPrev.current === null) {
@@ -858,6 +947,18 @@ useEffect(() => {
     const id = setTimeout(() => setToast(null), 3000);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // Migrare automaticamente al primo avvio
+  useEffect(() => {
+  try {
+    const hasNew = localStorage.getItem(LOCAL_KEY);
+    const old = localStorage.getItem(LEGACY_LOCAL_KEY);
+    if (!hasNew && old) {
+      localStorage.setItem(LOCAL_KEY, old);
+      localStorage.removeItem(LEGACY_LOCAL_KEY);
+    }
+  } catch {}
+}, []);
 
   // NEW: mostra il pulsante "torna su" dopo un tot di scroll
   useEffect(() => {
@@ -1177,7 +1278,7 @@ html { scrollbar-gutter: stable; }
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `manga-tracker-${new Date()
+    a.download = `tracker-${new Date()
       .toISOString()
       .slice(0, 19)}.json`;
     a.click();

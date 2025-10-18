@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+
+  function isOwner(uid) {
+    return request.auth != null && request.auth.uid == uid;
+  }
+
+  match /databases/{database}/documents {
+
+    // NUOVA collezione usata ora dall'app
+    match /tracker/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // subcollection delle pagine
+      match /pages/{pageId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // LEGACY: vecchia collezione, serve solo per leggere e migrare
+    match /mangaTracker/{uid} {
+      allow read: if isOwner(uid);
+
+      match /pages/{pageId} {
+        allow read: if isOwner(uid);
+      }
+    }
+  }
+}
