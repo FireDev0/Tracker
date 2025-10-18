@@ -217,4 +217,6 @@ firebase deploy
 ---
 
 ### License
-Personal project. No open-source license.
+© 2025 FireDev0 — All rights reserved.  
+This project is published for viewing purposes only.  
+See [LICENSE](LICENSE) for details.
