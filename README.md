@@ -110,6 +110,13 @@ firebase deploy
 
 ---
 
+### Licenza
+© 2025 FireDev0 — Tutti i diritti riservati.  
+Questo progetto è pubblicato solo a scopo di consultazione.  
+Vedi il file [LICENSE](LICENSE) per i dettagli.
+
+---
+
 ## English
 
 ### Overview
