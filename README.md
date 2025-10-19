@@ -51,14 +51,37 @@ firestore.rules          # regole Firestore versionate nel repo
   - `npm run lint` – lint del progetto
 
 ### Configurazione Firebase
+### Configurazione Firebase
 1. Crea/usa un progetto su https://console.firebase.google.com e abilita:
    - **Authentication → Google**
    - **Cloud Firestore**
-2. Inserisci le credenziali Web in `src/firebase.ts`.
-3. Tieni **le regole Firestore nel file `firestore.rules`** del repo (non modificarle dalla console).
+   - (GCP) **Identity Toolkit API**, **Cloud Firestore API**, **Firebase Installations API**
+2. **App Check (reCAPTCHA v3)**
+   - Crea una **Site key** e una **Secret** reCAPTCHA v3 per i domini del progetto (es. `tracker-f3856.web.app`, `firebaseapp.com`, `localhost`).
+   - In **Firebase → App Check → Web app (Tracker Web v3)** incolla la **Secret** nel campo dedicato e salva.
+   - Nell’app usa la **Site key** come variabile d’ambiente `VITE_APPCHECK_SITE_KEY`.
+3. **Variabili d’ambiente (`.env.local`)** *(non committare questo file)*
+   ```bash
+   VITE_FIREBASE_API_KEY=<YOUR_WEB_API_KEY>
+   VITE_FIREBASE_AUTH_DOMAIN=<YOUR_AUTH_DOMAIN>             # es. tracker-f3856.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=<YOUR_PROJECT_ID>               # es. tracker-f3856
+   VITE_FIREBASE_STORAGE_BUCKET=<YOUR_STORAGE_BUCKET>       # es. tracker-f3856.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=<YOUR_SENDER_ID>
+   VITE_FIREBASE_APP_ID=<YOUR_WEB_APP_ID>                   # es. 1:...:web:...
+   VITE_APPCHECK_SITE_KEY=<YOUR_RECAPTCHA_V3_SITE_KEY>
+   ```
+4. **Restringi la API key** (consigliato) – Google Cloud → *Credentials* → la **Browser key** in uso:
+   - **HTTP referrers**:
+     ```
+     https://<your-host>.web.app/*
+     https://<your-host>.firebaseapp.com/*
+     http://localhost:5173/*
+     ```
+   - **Restrict to APIs**: Identity Toolkit API, Cloud Firestore API, Firebase Installations API.
+5. Tieni **le regole Firestore nel file `firestore.rules`** del repo (non modificarle dalla console).  
    `firebase.json` punta già a questo file tramite `"firestore": { "rules": "firestore.rules" }`.
 
-#### Regole Firestore (esempio)
+#### Regole Firestore#### Regole Firestore (esempio)
 ```
 rules_version = '2';
 service cloud.firestore {
@@ -164,14 +187,37 @@ firestore.rules          # Firestore rules under version control
   - `npm run lint` – project lint
 
 ### Firebase setup
+### Firebase setup
 1. Create/use a project at https://console.firebase.google.com and enable:
    - **Authentication → Google**
    - **Cloud Firestore**
-2. Put your Web credentials into `src/firebase.ts`.
-3. Keep **Firestore rules in `firestore.rules`** (don’t edit them in console).
+   - (GCP) **Identity Toolkit API**, **Cloud Firestore API**, **Firebase Installations API**
+2. **App Check (reCAPTCHA v3)**
+   - Create a **Site key** and **Secret** for your domains (e.g., `tracker-f3856.web.app`, `firebaseapp.com`, `localhost`).
+   - In **Firebase → App Check → Web app (Tracker Web v3)** paste the **Secret** and save.
+   - In the app use the **Site key** via `VITE_APPCHECK_SITE_KEY`.
+3. **Environment variables (`.env.local`)** *(never commit this file)*
+   ```bash
+   VITE_FIREBASE_API_KEY=<YOUR_WEB_API_KEY>
+   VITE_FIREBASE_AUTH_DOMAIN=<YOUR_AUTH_DOMAIN>             # e.g. tracker-f3856.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=<YOUR_PROJECT_ID>               # e.g. tracker-f3856
+   VITE_FIREBASE_STORAGE_BUCKET=<YOUR_STORAGE_BUCKET>       # e.g. tracker-f3856.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=<YOUR_SENDER_ID>
+   VITE_FIREBASE_APP_ID=<YOUR_WEB_APP_ID>                   # e.g. 1:...:web:...
+   VITE_APPCHECK_SITE_KEY=<YOUR_RECAPTCHA_V3_SITE_KEY>
+   ```
+4. **API key hardening** (recommended) – Google Cloud → *Credentials* → the active **Browser key**:
+   - **HTTP referrers**:
+     ```
+     https://<your-host>.web.app/*
+     https://<your-host>.firebaseapp.com/*
+     http://localhost:5173/*
+     ```
+   - **Restrict to APIs**: Identity Toolkit API, Cloud Firestore API, Firebase Installations API.
+5. Keep **Firestore rules in `firestore.rules`** (don’t edit in console).  
    `firebase.json` already points to it via `"firestore": { "rules": "firestore.rules" }`.
 
-#### Firestore rules (example)
+#### Firestore rules#### Firestore rules (example)
 ```
 rules_version = '2';
 service cloud.firestore {
