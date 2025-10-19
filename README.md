@@ -51,7 +51,6 @@ firestore.rules          # regole Firestore versionate nel repo
   - `npm run lint` – lint del progetto
 
 ### Configurazione Firebase
-### Configurazione Firebase
 1. Crea/usa un progetto su https://console.firebase.google.com e abilita:
    - **Authentication → Google**
    - **Cloud Firestore**
@@ -186,7 +185,6 @@ firestore.rules          # Firestore rules under version control
   - `npm run preview` – serve built app locally
   - `npm run lint` – project lint
 
-### Firebase setup
 ### Firebase setup
 1. Create/use a project at https://console.firebase.google.com and enable:
    - **Authentication → Google**
