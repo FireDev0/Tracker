@@ -1,21 +1,13 @@
-// src/firebase.ts
-// Env-based Firebase init + domain guard + (optional) App Check
-import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { initializeApp } from "firebase/app";
+import {
+  initializeAppCheck,
+  ReCaptchaV3Provider,
+  getToken,
+  onTokenChanged,
+} from "firebase/app-check";
 import { getFirestore } from "firebase/firestore";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
-
-// In produzione consenti solo questi host (modifica se aggiungi un custom domain)
-const allowedHosts = new Set([
-  "localhost",
-  "127.0.0.1",
-  "tracker-f3856.web.app",
-  "tracker-f3856.firebaseapp.com",
-]);
-
-if (import.meta.env.PROD && !allowedHosts.has(location.hostname)) {
-  throw new Error("Unauthorized domain");
-}
+import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,31 +18,42 @@ const firebaseConfig = {
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Basic presence checks to help in dev
-const missing = Object.entries(firebaseConfig)
-  .filter(([, v]) => !v)
-  .map(([k]) => k);
-if (missing.length) {
-  console.warn("[firebase.ts] Missing env vars:", missing.join(", "));
+// Inizializza Firebase
+const app = initializeApp(firebaseConfig);
+
+// Inizializza Firestore, Auth e Storage
+const db = getFirestore(app);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const storage = getStorage(app);
+
+// Inizializza App Check solo in produzione e su domini autorizzati
+if (import.meta.env.PROD) {
+  const host = location.hostname;
+  const allowedHosts = [
+    "localhost",
+    "127.0.0.1",
+    "tracker-f3856.web.app",
+    "tracker-f3856.firebaseapp.com",
+  ];
+
+  if (allowedHosts.includes(host) && import.meta.env.VITE_APPCHECK_SITE_KEY) {
+    const appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(import.meta.env.VITE_APPCHECK_SITE_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+
+    // Log diagnostico per App Check
+    onTokenChanged(appCheck, (token) => {
+      console.info("[AppCheck] token ok ✅", !!token);
+    });
+
+    getToken(appCheck)
+      .then(() => console.info("[AppCheck] first token retrieved"))
+      .catch((err) => console.error("[AppCheck] getToken failed:", err));
+  } else {
+    console.warn("[AppCheck] Dominio non autorizzato o site key mancante, App Check disattivato");
+  }
 }
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
-
-// --- App Check ---
-// Produzione: attiva se hai messo la site key in VITE_APPCHECK_SITE_KEY
-// Dev: se imposti VITE_APPCHECK_DEBUG=1, abilita il token debug
-const appCheckSiteKey = import.meta.env.VITE_APPCHECK_SITE_KEY;
-if (!import.meta.env.DEV && appCheckSiteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(appCheckSiteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
-} else if (import.meta.env.DEV && import.meta.env.VITE_APPCHECK_DEBUG === "1") {
-  // @ts-ignore
-  self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-  console.info("[firebase.ts] App Check debug token enabled (dev only)");
-}
-
-export const db = getFirestore(app);
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
+export { app, db, auth, provider, storage };
