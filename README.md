@@ -62,7 +62,7 @@ firestore.rules          # regole Firestore versionate nel repo
 
 2. **App Check (reCAPTCHA v3)**
    - Crea una **Site key** e una **Secret** reCAPTCHA v3 per i domini del progetto (es. `tracker-<id>.web.app`, `tracker-<id>.firebaseapp.com`, `localhost`).  
-   - In **Firebase → App Check → Web app (Tracker Web v3)** incolla la **Secret** e salva.
+   - In **Firebase → App Check → Web app** incolla la **Secret** e salva.
    - Nell’app usa la **Site key** come variabile d’ambiente `VITE_APPCHECK_SITE_KEY`.
    - **Sviluppo locale (opzionale):** imposta `VITE_APPCHECK_DEBUG=1` nel `.env.local` per usare il **token debug** di App Check in dev (evita il throttling).
 
